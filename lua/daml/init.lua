@@ -39,20 +39,12 @@ function M.setup(opts)
   vim.g._daml_nvim_user_setup_done = true
   opts = tbl_deep_extend(vim.deepcopy(defaults), opts or {})
 
-  -- 1) Filetype detection
-  if opts.filetype then
-    -- safe to call multiple times; Neovim dedupes under the hood
-    pcall(vim.filetype.add, {
-      extension = { daml = 'daml' },
-    })
-  end
-
-  -- 2) Tree-sitter: treat DAML as Haskell (for better highlight coverage)
+  -- 1) Tree-sitter: treat DAML as Haskell (for better highlight coverage)
   if opts.treesitter_map and vim.treesitter and vim.treesitter.language and vim.treesitter.language.register then
     pcall(vim.treesitter.language.register, 'haskell', 'daml')
   end
 
-  -- 3) Optional: keep Haskell indentation for DAML buffers
+  -- 2) Optional: keep Haskell indentation for DAML buffers
   if opts.keep_haskell_indent then
     vim.api.nvim_create_autocmd('FileType', {
       group = vim.api.nvim_create_augroup('daml_nvim_indent', { clear = true }),
@@ -67,7 +59,7 @@ function M.setup(opts)
     })
   end
 
-  -- 4) LSP: configure daml via nvim-lspconfig
+  -- 3) LSP: configure daml via nvim-lspconfig
   if opts.lsp and opts.lsp.enable then
     local ok_configs, configs = pcall(require, 'lspconfig.configs')
     local ok_lspconfig, lspconfig = pcall(require, 'lspconfig')
