@@ -59,41 +59,27 @@ function M.setup(opts)
     })
   end
 
-  -- 3) LSP: configure daml via nvim-lspconfig
+  -- 3) LSP: configure daml via native Neovim LSP
   if opts.lsp and opts.lsp.enable then
-    local ok_configs, configs = pcall(require, 'lspconfig.configs')
-    local ok_lspconfig, lspconfig = pcall(require, 'lspconfig')
-    if ok_configs and ok_lspconfig then
-      if not configs.daml then
-        configs.daml = {
-          default_config = {
-            cmd = opts.lsp.cmd,
-            filetypes = opts.lsp.filetypes,
-            root_dir = require('lspconfig.util').root_pattern(unpack(opts.lsp.root_markers)),
-            single_file_support = opts.lsp.single_file_support,
-          },
-        }
+    local capabilities = opts.lsp.capabilities
+    if not capabilities then
+      local ok_blink, blink = pcall(require, 'blink.cmp')
+      if ok_blink and blink.get_lsp_capabilities then
+        capabilities = blink.get_lsp_capabilities()
+      else
+        capabilities = vim.lsp.protocol.make_client_capabilities()
       end
-
-      -- Capabilities: prefer blink.cmp if available; else fallback to vim.lsp
-      local capabilities = opts.lsp.capabilities
-      if not capabilities then
-        local ok_blink, blink = pcall(require, 'blink.cmp')
-        if ok_blink and blink.get_lsp_capabilities then
-          capabilities = blink.get_lsp_capabilities()
-        else
-          capabilities = vim.lsp.protocol.make_client_capabilities()
-        end
-      end
-
-      lspconfig.daml.setup {
-        capabilities = capabilities,
-      }
-    else
-      vim.schedule(function()
-        vim.notify('[daml.nvim] nvim-lspconfig not found; skipping DAML LSP setup', vim.log.levels.WARN)
-      end)
     end
+
+    vim.lsp.config('daml', {
+      cmd = opts.lsp.cmd,
+      filetypes = opts.lsp.filetypes,
+      -- use root_markers instead of a root_dir function
+      root_markers = opts.lsp.root_markers,
+      single_file_support = opts.lsp.single_file_support,
+      capabilities = capabilities,
+    })
+    vim.lsp.enable 'daml'
   end
 
   local bufopts = opts.buffer_opts
