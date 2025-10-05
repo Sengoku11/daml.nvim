@@ -2,7 +2,6 @@
 local M = {}
 
 local defaults = {
-  filetype = true, -- register 'daml' filetype
   treesitter_map = true, -- map daml -> haskell TS parser
   keep_haskell_indent = true, -- set indentexpr to GetHaskellIndent() if available
   lsp = {
@@ -20,7 +19,6 @@ local defaults = {
     tabstop = 2,
     softtabstop = 2,
   },
-  treesitter_ensure = { 'haskell' }, -- ensure Haskell is installed (if user uses nvim-treesitter)
 }
 
 local function tbl_deep_extend(dst, src)
