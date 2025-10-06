@@ -7,4 +7,4 @@
 
 ;; Treat these like functions
 ((_) @function
-  (#match? @function "^(controller|signatory|viewtype|observer|ensure)$"))
+  (#match? @function "^(controller|signatory|viewtype|observer|ensure|this|arg|self)$"))
