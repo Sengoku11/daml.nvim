@@ -1,10 +1,12 @@
 ;; extends
-;; DAML-on-Haskell: color extra keywords without relying on specific node names.
+;; DAML-on-Haskell keywords without using huge `_` captures
 
-;; Treat these like `data` (type-ish keywords)
-((_) @keyword.type
-  (#match? @keyword.type "^(template|interface|choice|nonconsuming|preconsuming|postconsuming)$"))
+; Type-ish keywords you want colored like keywords
+((variable) @keyword
+  (#any-of? @keyword
+   "template" "interface" "choice" "nonconsuming" "preconsuming" "postconsuming"))
 
-;; Treat these like functions
-((_) @function
-  (#match? @function "^(controller|signatory|viewtype|observer|ensure|this|arg|self)$"))
+; Builtin-ish DSL words you want colored like functions
+((variable) @function.builtin
+  (#any-of? @function.builtin
+   "controller" "signatory" "viewtype" "observer" "ensure" "this" "arg" "self"))
