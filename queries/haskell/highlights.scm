@@ -9,4 +9,4 @@
 ;; Treat these like builtin functions
 ((variable) @function.builtin
   (#any-of? @function.builtin
-   "controller" "signatory" "viewtype" "observer" "ensure" "this" "arg" "self" "submit" "exercise" "create"))
+   "controller" "signatory" "viewtype" "observer" "ensure" "this" "arg" "self" "submit" "exercise" "create" "key" "maintainer" "view"))
