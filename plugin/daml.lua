@@ -5,6 +5,12 @@ if vim.g.loaded_daml_nvim then
 end
 vim.g.loaded_daml_nvim = true
 
+-- Make DAML filetype detection work for scratch/preview buffers too
+pcall(vim.filetype.add, {
+  extension = { daml = 'daml' },
+  pattern = { ['.*%.daml'] = 'daml' }, -- matches buffer names like "...foo.daml"
+})
+
 -- Defer to after UI is up for better performance, then to the main setup with defaults.
 vim.api.nvim_create_autocmd('UiEnter', {
   once = true,
