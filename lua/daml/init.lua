@@ -7,7 +7,7 @@ local defaults = {
   lsp = {
     enable = true,
     -- Create a new config for DAML LSP.
-    cmd = { 'daml', 'damlc', 'ide', '--scenarios=yes', '--RTS', '+RTS', '-M4G', '-N' },
+    cmd = { 'daml', 'ide', '--RTS', '+RTS', '-M4G', '-N' },
     filetypes = { 'daml' },
     root_markers = { 'daml.yaml', '.git' },
     single_file_support = true,
