@@ -22,8 +22,13 @@ local defaults = {
 }
 
 local function tbl_deep_extend(dst, src)
+  -- Polyfill for older Neovim versions (< 0.10)
+  ---@diagnostic disable-next-line: deprecated
+  local is_list = vim.islist or vim.tbl_islist
+
   for k, v in pairs(src or {}) do
-    if type(v) == 'table' and type(dst[k]) == 'table' then
+    -- Check if dst[k] is a list to avoid merging arrays element-wise
+    if type(v) == 'table' and type(dst[k]) == 'table' and not is_list(dst[k]) then
       tbl_deep_extend(dst[k], v)
     else
       dst[k] = v
