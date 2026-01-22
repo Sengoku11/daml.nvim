@@ -4,9 +4,8 @@ Minimal **DAML** support for Neovim.
 
 - **Filetype detection**: auto-detects `*.daml` via `ftdetect/`.
 - **LSP out of the box**:
-  - diagnostics (errors/warnings)
-  - hover, go-to definition, references
-  - rename, code actions, formatting (server-dependent)
+  - diagnostics (hints/errors/warnings)
+  - hover hints, go-to definition, code actions, formatting
   - completion (integrates with your completion plugin; auto-capabilities with `blink.cmp` if present)
 - **Syntax highlighting**: maps DAML → **Haskell** Tree-sitter for broader coverage.
 - **Indent (optional)**: reuses `GetHaskellIndent()` when available.
@@ -16,7 +15,7 @@ Minimal **DAML** support for Neovim.
 ## Requirements
 
 - **Neovim 0.11+**
-- **DAML SDK** (`daml` CLI on your `$PATH`) — required for the language server
+- **DPM / DAML SDK** (`daml` CLI on your `$PATH`) — required for the language server
 - Optional:
   - **nvim-treesitter** (install the `haskell` parser)
   - **blink.cmp** (for richer LSP capabilities)
@@ -29,10 +28,13 @@ Minimal **DAML** support for Neovim.
 {
   'Sengoku11/daml.nvim',
   ft = 'daml',
-  opts = {},
   dependencies = {
     'nvim-treesitter/nvim-treesitter',
     'saghen/blink.cmp',
+  },
+  opts = {
+    -- NOTE: If you use `dpm` uncomment the line below:
+    -- cmd = { 'dpm', 'damlc', 'multi-ide' }, -- for more settings run `dpm --help`
   },
 }
 ```
