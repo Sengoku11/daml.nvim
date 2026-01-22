@@ -47,6 +47,7 @@ Minimal **DAML** support for Neovim.
 opts = {
   treesitter_map = true, -- map daml -> haskell TS parser
   keep_haskell_indent = true, -- set indentexpr to GetHaskellIndent() if available
+  daml_script = { render = true }, -- set to false if you prefer raw html output
   lsp = {
     enable = true,
     -- Create a new config for DAML LSP.

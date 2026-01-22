@@ -4,6 +4,7 @@ local M = {}
 local defaults = {
   treesitter_map = true, -- map daml -> haskell TS parser
   keep_haskell_indent = true, -- set indentexpr to GetHaskellIndent() if available
+  daml_script = { render = true }, -- set to false if you prefer raw html output
   lsp = {
     enable = true,
     -- Create a new config for DAML LSP.
@@ -85,7 +86,7 @@ function M.setup(opts)
       ['daml/virtualResource/didChange'] = codelens.on_virtual_resource_change,
     }
     -- Setup autocommands and user commands
-    codelens.setup()
+    codelens.setup(opts.daml_script)
 
     vim.lsp.config('daml', {
       cmd = opts.lsp.cmd,

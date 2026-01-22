@@ -1,6 +1,8 @@
 ---@class Sengoku11.Daml.CodeLens
 local M = {}
 
+local config = { render = true }
+
 -- Global registry to map Virtual URIs -> Neovim Buffer IDs
 _G.DamlVirtualBuffers = _G.DamlVirtualBuffers or {}
 
@@ -73,7 +75,7 @@ function M.on_virtual_resource_change(_, result, ctx)
 
   if buf and vim.api.nvim_buf_is_valid(buf) then
     vim.schedule(function()
-      local plain_text = render_daml_html(content)
+      local plain_text = config.render and render_daml_html(content) or content
       local lines = vim.split(plain_text, '\n')
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
       vim.bo[buf].filetype = 'daml'
@@ -152,7 +154,10 @@ function M.on_show_resource(command, ctx)
   end
 end
 
-function M.setup()
+function M.setup(opts)
+  if opts then
+    config = vim.tbl_deep_extend('force', config, opts)
+  end
   -- Create command :DamlRunScript to run CodeLens on current line
   vim.api.nvim_create_user_command('DamlRunScript', function()
     vim.lsp.codelens.run()
