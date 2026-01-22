@@ -32,6 +32,9 @@ Minimal **DAML** support for Neovim.
     'nvim-treesitter/nvim-treesitter',
     'saghen/blink.cmp',
   },
+  keys = {
+    { '<leader>gt', '<cmd>DamlRunScript<cr>', desc = 'Run Daml Script' },
+  },
   opts = {
     -- NOTE: If you use `dpm` uncomment the line below:
     -- cmd = { 'dpm', 'damlc', 'multi-ide' }, -- for more settings run `dpm --help`

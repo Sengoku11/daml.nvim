@@ -74,6 +74,19 @@ function M.setup(opts)
       end
     end
 
+    -- Setup CodeLens (Always enabled)
+    local codelens = require 'daml.codelens'
+    -- Register the client-side command that the server requests
+    local lsp_commands = {
+      ['daml.showResource'] = codelens.on_show_resource,
+    }
+    -- Register the notification handler for results
+    local lsp_handlers = {
+      ['daml/virtualResource/didChange'] = codelens.on_virtual_resource_change,
+    }
+    -- Setup autocommands and user commands
+    codelens.setup()
+
     vim.lsp.config('daml', {
       cmd = opts.lsp.cmd,
       filetypes = opts.lsp.filetypes,
@@ -81,6 +94,8 @@ function M.setup(opts)
       root_markers = opts.lsp.root_markers,
       single_file_support = opts.lsp.single_file_support,
       capabilities = capabilities,
+      commands = lsp_commands,
+      handlers = lsp_handlers,
     })
     vim.lsp.enable 'daml'
   end
