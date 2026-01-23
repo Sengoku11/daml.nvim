@@ -209,9 +209,10 @@ local function render_daml_html(html)
     local new_lines = {}
 
     for _, line in ipairs(lines) do
-      -- Apply compaction only to non-header lines (skip # Title)
-      if not line:match '^%s*#' then
-        -- 1. Trim Decimals (Global preference, but applied line-by-line now)
+      -- Apply compaction only to lines that look like table rows (contain a pipe |).
+      -- This reliably excludes Headers (# Title) and other non-table text.
+      if line:find('|', 1, true) then
+        -- 1. Trim Decimals
         line = line:gsub('(%d+%.%d+)', function(match)
           local trimmed = match:gsub('0+$', '')
           if trimmed:sub(-1) == '.' then
@@ -222,8 +223,12 @@ local function render_daml_html(html)
 
         -- 2. Trim Types (Table View Only)
         if active_view == 'table' then
-          -- Matches "Path:Type" where Type starts with uppercase
-          line = line:gsub('([%w_%.]+):([A-Z][%w_@#]*)', '%2')
+          -- Robust Context-Agnostic Regex:
+          -- Finds structure: Path + Separator + Type
+          -- Path: Starts with word char, contains alphanum/dots/underscores/hyphens
+          -- Separator: Colon
+          -- Type: Starts with Uppercase, contains alphanum/underscores
+          line = line:gsub('([%w_][%.%w_%-]*):([A-Z][%w_]*)', '%2')
         end
       end
       table.insert(new_lines, line)
