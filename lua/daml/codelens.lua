@@ -130,7 +130,7 @@ local function render_daml_html(html)
 
   -- Handle Table Titles (h1) with Proximity Theory + Markdown Header
   -- 1. \n\n\n\n adds 3 blank lines BEFORE the title (strong separation from prev section)
-  -- 2. ### marks it as H3
+  -- 2. Adds # prefix
   -- 3. </h1> -> '' keeps it close to the table (no extra newline)
   text = text:gsub('<h1[^>]*>', '\n\n\n\n# '):gsub('</h1>', '')
 
@@ -168,8 +168,11 @@ local function render_daml_html(html)
 
   -- 11. Final Polish
   -- Add extra newline before Transactions header for better separation
-  text = text:gsub('Transactions:', '\n\n### Transactions:')
-  text = text:gsub('\n%s*\n%s*\n', '\n\n')
+  local count = 0
+  text, count = text:gsub('Transactions:', '\n\n\n##' .. ' Transactions:\n```haskell')
+  if count > 0 then
+    text = text .. '\n```'
+  end
 
   -- Remove leading whitespace
   text = text:gsub('^%s+', '')
