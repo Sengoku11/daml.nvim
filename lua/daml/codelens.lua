@@ -6,6 +6,10 @@ local config = { render = true }
 -- Global registry to map Virtual URIs -> Neovim Buffer IDs
 _G.DamlVirtualBuffers = _G.DamlVirtualBuffers or {}
 
+-- View State Management
+local active_view = 'table' -- 'table' or 'transaction'
+local raw_content_cache = {} -- Store raw HTML per URI for re-rendering
+
 -- Helper: Format & Align text tables into valid Markdown
 local function format_markdown_tables(text)
   local lines = vim.split(text, '\n')
@@ -108,6 +112,28 @@ end
 local function render_daml_html(html)
   local text = html
 
+  -- 0. View Filtering (Table vs Transaction)
+  -- We rely on specific markers in the raw HTML:
+  -- Table section: <div class="table">...</div>
+  -- Transaction section: <div class="da-code transaction">...</div>
+  local tx_marker = '<div class="da%-code transaction">'
+  local table_marker = '<div class="table">'
+
+  local s_tx = text:find(tx_marker)
+  local s_table = text:find(table_marker)
+
+  if active_view == 'table' then
+    -- Hide transactions: Cut off everything starting from the transaction block
+    if s_tx then
+      text = text:sub(1, s_tx - 1)
+    end
+  elseif active_view == 'transaction' then
+    -- Hide table: Cut out the table block, keeping the header (notes) and the tail (transactions)
+    if s_table and s_tx and s_table < s_tx then
+      text = text:sub(1, s_table - 1) .. text:sub(s_tx)
+    end
+  end
+
   -- 1. NEWLINE HACK: Lua patterns don't match newlines with '.',
   -- so we temporarily swap them to handle multi-line blocks like <head>...
   text = text:gsub('\r\n', '___NL___'):gsub('\n', '___NL___')
@@ -183,6 +209,55 @@ local function render_daml_html(html)
   return text
 end
 
+-- Helper: Update buffer content with header and rendered body
+local function update_buffer(buf, content)
+  if not buf or not vim.api.nvim_buf_is_valid(buf) then
+    return
+  end
+
+  vim.schedule(function()
+    local final_lines = {}
+
+    if config.render then
+      local plain_text = render_daml_html(content)
+      local body_lines = vim.split(plain_text, '\n')
+
+      -- Generate Header
+      local t_mark = (active_view == 'table') and '[x]' or '[ ]'
+      local x_mark = (active_view == 'transaction') and '[x]' or '[ ]'
+      local header_lines = {
+        'View Config:',
+        string.format('%s - <leader>vt - Table view', t_mark),
+        string.format('%s - <leader>vx - Tx view', x_mark),
+        '', -- spacer
+      }
+
+      final_lines = vim.list_extend(header_lines, body_lines)
+    else
+      -- Raw output as is
+      final_lines = vim.split(content, '\n')
+    end
+
+    -- Unlock, Write, Lock
+    vim.bo[buf].modifiable = true
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, final_lines)
+    vim.bo[buf].modifiable = false
+    vim.bo[buf].filetype = 'markdown'
+  end)
+end
+
+-- Helper: Refresh all open virtual buffers with current settings
+local function refresh_all_views()
+  for uri, buf in pairs(_G.DamlVirtualBuffers) do
+    if vim.api.nvim_buf_is_valid(buf) then
+      local content = raw_content_cache[uri]
+      if content then
+        update_buffer(buf, content)
+      end
+    end
+  end
+end
+
 --- Handler for 'daml/virtualResource/didChange'
 function M.on_virtual_resource_change(_, result, ctx)
   if not result or not result.uri then
@@ -193,19 +268,12 @@ function M.on_virtual_resource_change(_, result, ctx)
   local content = result.contents or result.text or ''
   local buf = _G.DamlVirtualBuffers[uri]
 
-  if buf and vim.api.nvim_buf_is_valid(buf) then
-    vim.schedule(function()
-      local plain_text = config.render and render_daml_html(content) or content
-      local lines = vim.split(plain_text, '\n')
+  -- Cache content for view toggling
+  raw_content_cache[uri] = content
 
-      -- Unlock, Write, Lock
-      vim.bo[buf].modifiable = true
-      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-      vim.bo[buf].modifiable = false
-      vim.bo[buf].filetype = 'markdown'
-
-      vim.notify('Daml: Results updated', vim.log.levels.INFO)
-    end)
+  if buf then
+    update_buffer(buf, content)
+    vim.notify('Daml: Results updated', vim.log.levels.INFO)
   end
 end
 
@@ -246,7 +314,20 @@ function M.on_show_resource(command, ctx)
   vim.keymap.set({ 'n', 'i' }, '<C-ScrollWheelDown>', '20zl', map_opts)
   vim.keymap.set({ 'n', 'i' }, '<C-ScrollWheelUp>', '20zh', map_opts)
 
-  -- 5. Disable Diagnostics
+  -- 5. VIEW TOGGLE MAPPINGS (Only if rendering is enabled)
+  if config.render then
+    vim.keymap.set('n', '<leader>vt', function()
+      active_view = 'table'
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Switch to Table View' })
+
+    vim.keymap.set('n', '<leader>vx', function()
+      active_view = 'transaction'
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Switch to Transaction View' })
+  end
+
+  -- 6. Disable Diagnostics
   vim.diagnostic.enable(false, { bufnr = buf })
 
   -- Initial Content
@@ -261,6 +342,9 @@ function M.on_show_resource(command, ctx)
   -- Cleanup
   vim.keymap.set('n', 'q', function()
     _G.DamlVirtualBuffers[raw_uri] = nil
+    -- Clear cache for this URI
+    raw_content_cache[raw_uri] = nil
+
     if vim.api.nvim_win_is_valid(win) then
       vim.api.nvim_win_close(win, true)
     end
