@@ -10,6 +10,7 @@ _G.DamlVirtualBuffers = _G.DamlVirtualBuffers or {}
 local active_view = 'table' -- 'table' or 'transaction'
 local fold_maps = true -- Toggle for folding long Map[...] structures
 local show_archived = false -- Toggle for showing archived contracts (rows)
+local trim_decimals = true -- Toggle for trimming trailing zeros in decimals
 local raw_content_cache = {} -- Store raw HTML per URI for re-rendering
 
 -- Helper: Format & Align text tables into valid Markdown
@@ -146,13 +147,8 @@ local function render_daml_html(html)
   end
 
   -- 1.5. Filter Archived Contracts (if enabled and applicable)
-  -- We do this after view filtering but before striping tags to catch <tr class="archived">
   if not show_archived then
     -- Remove rows with class="archived".
-    -- Note: We rely on the fact that in Table view newlines were replaced by spaces,
-    -- but in Transaction view they are ___NL___.
-    -- However, the regex `.-` matches both spaces and `___NL___` (characters).
-    -- HTML: <tr class="archived">...</tr>
     text = text:gsub('<tr[^>]*class="archived"[^>]*>.-</tr>', '')
   end
 
@@ -176,7 +172,6 @@ local function render_daml_html(html)
   text = text:gsub('<h1[^>]*>', '\n\n\n\n# '):gsub('</h1>', '')
 
   -- 5. Format Table Rows (Active Contracts)
-  -- Since we stripped newlines in Table view, this is the ONLY place that creates rows.
   text = text:gsub('<tr[^>]*>', '\n') -- Row start = Newline
   text = text:gsub('</tr>', '') -- Row end = nothing
 
@@ -208,6 +203,17 @@ local function render_daml_html(html)
   text = text:gsub('OObserver', 'O')
   text = text:gsub('DDivulged', 'D')
 
+  -- 10.5. TRIM DECIMALS
+  if trim_decimals then
+    text = text:gsub('(%d+%.%d+)', function(match)
+      local trimmed = match:gsub('0+$', '')
+      if trimmed:sub(-1) == '.' then
+        return trimmed .. '0'
+      end
+      return trimmed
+    end)
+  end
+
   -- 11. MAP FOLDING (Only in Table View)
   if active_view == 'table' and fold_maps then
     local map_refs = {}
@@ -217,7 +223,6 @@ local function render_daml_html(html)
     text = text:gsub('(Map%b[])', function(match)
       if #match > 50 then
         map_count = map_count + 1
-        -- Use Map_N instead of Map#N to support '*' search in Vim
         local ref = 'Map_' .. map_count
         table.insert(map_refs, ref .. ': ' .. match)
         return ref
@@ -270,6 +275,7 @@ local function update_buffer(buf, content)
       local x_mark = (active_view == 'transaction') and '[x]' or '[ ]'
       local m_mark = fold_maps and '[x]' or '[ ]'
       local a_mark = show_archived and '[x]' or '[ ]'
+      local d_mark = trim_decimals and '[x]' or '[ ]'
 
       local header_lines = {
         'View Config:',
@@ -277,6 +283,7 @@ local function update_buffer(buf, content)
         string.format('%s - <leader>vx - Tx view', x_mark),
         string.format('%s - <leader>vm - Fold maps', m_mark),
         string.format('%s - <leader>va - Show archived', a_mark),
+        string.format('%s - <leader>vd - Trim decimals', d_mark),
         '', -- spacer
       }
 
@@ -377,6 +384,11 @@ function M.on_show_resource(command, ctx)
       show_archived = not show_archived
       refresh_all_views()
     end, { buffer = buf, desc = 'Daml: Toggle Archived Contracts' })
+
+    vim.keymap.set('n', '<leader>vd', function()
+      trim_decimals = not trim_decimals
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Toggle Decimal Trimming' })
   end
 
   vim.diagnostic.enable(false, { bufnr = buf })
