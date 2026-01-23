@@ -196,6 +196,14 @@ local function render_daml_html(html)
   -- Add extra newline before Transactions header for better separation
   local count = 0
   text, count = text:gsub('Transactions:', '\n\n\n##' .. ' Transactions:\n```haskell')
+
+  -- If not found (failed transaction?), check for failure header and wrap trace
+  if count == 0 then
+    -- Capture the failure line (e.g. "Script execution failed on commit at Tests:10:2:")
+    -- [^\n]* ensures we capture the full line until the newline introduced by <br> in step 7
+    text, count = text:gsub('(Script execution failed on commit at[^\n]*)', '\n\n\n## %1\n```haskell')
+  end
+
   if count > 0 then
     text = text .. '\n```'
   end
