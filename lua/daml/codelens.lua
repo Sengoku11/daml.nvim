@@ -8,6 +8,7 @@ _G.DamlVirtualBuffers = _G.DamlVirtualBuffers or {}
 
 -- View State Management
 local active_view = 'table' -- 'table' or 'transaction'
+local fold_maps = true -- Toggle for folding long Map[...] structures
 local raw_content_cache = {} -- Store raw HTML per URI for re-rendering
 
 -- Helper: Format & Align text tables into valid Markdown
@@ -113,9 +114,6 @@ local function render_daml_html(html)
   local text = html
 
   -- 0. View Filtering (Table vs Transaction)
-  -- We rely on specific markers in the raw HTML:
-  -- Table section: <div class="table">...</div>
-  -- Transaction section: <div class="da-code transaction">...</div>
   local tx_marker = '<div class="da%-code transaction">'
   local table_marker = '<div class="table">'
 
@@ -123,44 +121,50 @@ local function render_daml_html(html)
   local s_table = text:find(table_marker)
 
   if active_view == 'table' then
-    -- Hide transactions: Cut off everything starting from the transaction block
+    -- Hide transactions
     if s_tx then
       text = text:sub(1, s_tx - 1)
     end
+
+    -- COMPACT MODE for Tables:
+    -- Remove all newlines and tabs to ensure cells are single-line.
+    -- This fixes issues where Map[...] parsing breaks table structure.
+    text = text:gsub('[\r\n\t]', ' ')
+    -- Replace <br> with space in tables
+    text = text:gsub('<br%s*/?>', ' ')
+    -- Trim excessive spaces (more than 2 -> 2) to fix "tabs-like breaks"
+    text = text:gsub('%s%s%s+', '  ')
   elseif active_view == 'transaction' then
-    -- Hide table: Cut out the table block, keeping the header (notes) and the tail (transactions)
+    -- Hide table
     if s_table and s_tx and s_table < s_tx then
       text = text:sub(1, s_table - 1) .. text:sub(s_tx)
     end
+
+    -- Transaction view relies on original newlines/br
+    text = text:gsub('\r\n', '___NL___'):gsub('\n', '___NL___')
   end
 
-  -- 1. NEWLINE HACK: Lua patterns don't match newlines with '.',
-  -- so we temporarily swap them to handle multi-line blocks like <head>...
-  text = text:gsub('\r\n', '___NL___'):gsub('\n', '___NL___')
+  -- 2. Remove entire blocks (Tags AND Content)
+  text = text:gsub('<head>.-</head>', '')
+  text = text:gsub('<style>.-</style>', '')
+  text = text:gsub('<script>.-</script>', '')
+  text = text:gsub('<button.-</button>', '')
+  text = text:gsub('<label.-</label>', '')
 
-  -- 2. NUCLEAR OPTION: Remove entire blocks (Tags AND Content)
-  text = text:gsub('<head>.-</head>', '') -- Kills CSS (.da-code) & Scripts
-  text = text:gsub('<style>.-</style>', '') -- Kills inline styles
-  text = text:gsub('<script>.-</script>', '') -- Kills inline JS
-  text = text:gsub('<button.-</button>', '') -- Kills "Show transaction" buttons
-  text = text:gsub('<label.-</label>', '') -- Kills "Show archived" labels
-
-  -- 3. Restore Newlines
+  -- 3. Restore Newlines (Only for Transaction view effectively, as Table view stripped them)
   text = text:gsub('___NL___', '\n')
 
-  -- 4. Clean up specific UI text leftovers (if any remain outside tags)
+  -- 4. Clean up UI text
   text = text:gsub('Show transaction view', '')
   text = text:gsub('Show table view', '')
   text = text:gsub('Show archived', '')
   text = text:gsub('Show detailed disclosure', '')
 
-  -- Handle Table Titles (h1) with Proximity Theory + Markdown Header
-  -- 1. \n\n\n\n adds 3 blank lines BEFORE the title (strong separation from prev section)
-  -- 2. Adds # prefix
-  -- 3. </h1> -> '' keeps it close to the table (no extra newline)
+  -- Handle Headers
   text = text:gsub('<h1[^>]*>', '\n\n\n\n# '):gsub('</h1>', '')
 
   -- 5. Format Table Rows (Active Contracts)
+  -- Since we stripped newlines in Table view, this is the ONLY place that creates rows.
   text = text:gsub('<tr[^>]*>', '\n') -- Row start = Newline
   text = text:gsub('</tr>', '') -- Row end = nothing
 
@@ -168,10 +172,10 @@ local function render_daml_html(html)
   text = text:gsub('</t[hd]>', ' | ')
   text = text:gsub('<t[hd][^>]*>', ' ')
 
-  -- 7. Formatting for Transactions (The Tree)
+  -- 7. Formatting for Transactions (The Tree) - if any remain
   text = text:gsub('<br%s*/?>', '\n')
 
-  -- 8. Strip any remaining HTML tags (like <div>, <span>)
+  -- 8. Strip remaining HTML
   text = text:gsub('<[^>]+>', '')
 
   -- 9. Decode HTML Entities
@@ -186,21 +190,41 @@ local function render_daml_html(html)
   }
   text = text:gsub('&%w+;', entities):gsub('&#%d+;', entities)
 
-  -- 10. Fix Artifacts (Tooltips merged by tag stripping)
+  -- 10. Fix Artifacts
   text = text:gsub('WWitness', 'W')
   text = text:gsub('SSignatory', 'S')
   text = text:gsub('OObserver', 'O')
   text = text:gsub('DDivulged', 'D')
 
-  -- 11. Final Polish
-  -- Add extra newline before Transactions header for better separation
+  -- 11. MAP FOLDING (Only in Table View)
+  if active_view == 'table' and fold_maps then
+    local map_refs = {}
+    local map_count = 0
+
+    -- Match Map[...] patterns
+    text = text:gsub('(Map%b[])', function(match)
+      if #match > 50 then
+        map_count = map_count + 1
+        -- Use Map_N instead of Map#N to support '*' search in Vim
+        local ref = 'Map_' .. map_count
+        table.insert(map_refs, ref .. ': ' .. match)
+        return ref
+      else
+        return match
+      end
+    end)
+
+    if #map_refs > 0 then
+      text = text .. '\n\n' .. table.concat(map_refs, '\n')
+    end
+  end
+
+  -- 12. Final Polish
   local count = 0
   text, count = text:gsub('Transactions:', '\n\n\n##' .. ' Transactions:\n```haskell')
 
-  -- If not found (failed transaction?), check for failure header and wrap trace
   if count == 0 then
-    -- Capture the failure line (e.g. "Script execution failed on commit at Tests:10:2:")
-    -- [^\n]* ensures we capture the full line until the newline introduced by <br> in step 7
+    -- Detect failed transactions
     text, count = text:gsub('(Script execution failed on commit at[^\n]*)', '\n\n\n## %1\n```haskell')
   end
 
@@ -208,10 +232,9 @@ local function render_daml_html(html)
     text = text .. '\n```'
   end
 
-  -- Remove leading whitespace
   text = text:gsub('^%s+', '')
 
-  -- 12. MARKDOWN MAGIC: Convert loose tables to valid Markdown syntax
+  -- 13. MARKDOWN MAGIC
   text = format_markdown_tables(text)
 
   return text
@@ -233,10 +256,13 @@ local function update_buffer(buf, content)
       -- Generate Header
       local t_mark = (active_view == 'table') and '[x]' or '[ ]'
       local x_mark = (active_view == 'transaction') and '[x]' or '[ ]'
+      local m_mark = fold_maps and '[x]' or '[ ]'
+
       local header_lines = {
         'View Config:',
         string.format('%s - <leader>vt - Table view', t_mark),
         string.format('%s - <leader>vx - Tx view', x_mark),
+        string.format('%s - <leader>vm - Fold maps', m_mark),
         '', -- spacer
       }
 
@@ -276,7 +302,6 @@ function M.on_virtual_resource_change(_, result, ctx)
   local content = result.contents or result.text or ''
   local buf = _G.DamlVirtualBuffers[uri]
 
-  -- Cache content for view toggling
   raw_content_cache[uri] = content
 
   if buf then
@@ -293,16 +318,13 @@ function M.on_show_resource(command, ctx)
   end
   local raw_uri = args[2]
 
-  -- 1. Create Buffer
   local buf = vim.api.nvim_create_buf(false, true)
   _G.DamlVirtualBuffers[raw_uri] = buf
 
-  -- 2. Open Window (Vertical Split)
   vim.cmd 'botright vsplit'
   local win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(win, buf)
 
-  -- 3. WINDOW OPTIONS
   local wo = vim.wo[win]
   wo.wrap = false
   wo.virtualedit = 'all'
@@ -313,7 +335,6 @@ function M.on_show_resource(command, ctx)
   wo.spell = false
   wo.sidescrolloff = 0
 
-  -- 4. MOUSE SCROLL MAPPINGS
   local map_opts = { buffer = buf, silent = true }
   vim.keymap.set({ 'n', 'i' }, '<ScrollWheelRight>', '20zl', map_opts)
   vim.keymap.set({ 'n', 'i' }, '<ScrollWheelLeft>', '20zh', map_opts)
@@ -322,7 +343,6 @@ function M.on_show_resource(command, ctx)
   vim.keymap.set({ 'n', 'i' }, '<C-ScrollWheelDown>', '20zl', map_opts)
   vim.keymap.set({ 'n', 'i' }, '<C-ScrollWheelUp>', '20zh', map_opts)
 
-  -- 5. VIEW TOGGLE MAPPINGS (Only if rendering is enabled)
   if config.render then
     vim.keymap.set('n', '<leader>vt', function()
       active_view = 'table'
@@ -333,12 +353,15 @@ function M.on_show_resource(command, ctx)
       active_view = 'transaction'
       refresh_all_views()
     end, { buffer = buf, desc = 'Daml: Switch to Transaction View' })
+
+    vim.keymap.set('n', '<leader>vm', function()
+      fold_maps = not fold_maps
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Toggle Map Folding' })
   end
 
-  -- 6. Disable Diagnostics
   vim.diagnostic.enable(false, { bufnr = buf })
 
-  -- Initial Content
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
     '⏳ Waiting for Daml Server notification...',
@@ -347,10 +370,8 @@ function M.on_show_resource(command, ctx)
   vim.bo[buf].modifiable = false
   vim.bo[buf].filetype = 'markdown'
 
-  -- Cleanup
   vim.keymap.set('n', 'q', function()
     _G.DamlVirtualBuffers[raw_uri] = nil
-    -- Clear cache for this URI
     raw_content_cache[raw_uri] = nil
 
     if vim.api.nvim_win_is_valid(win) then
@@ -358,16 +379,13 @@ function M.on_show_resource(command, ctx)
     end
     local client = vim.lsp.get_client_by_id(ctx.client_id)
     if client then
-      -- FIX: Use colon :notify to pass self correctly
       client:notify('textDocument/didClose', { textDocument = { uri = raw_uri } })
     end
   end, { buffer = buf })
 
-  -- Subscribe
   local client = vim.lsp.get_client_by_id(ctx.client_id)
   if client then
     vim.notify('Daml: Subscribing...', vim.log.levels.INFO)
-    -- FIX: Use colon :notify to pass self correctly
     client:notify('textDocument/didOpen', {
       textDocument = { uri = raw_uri, languageId = 'daml', version = 1, text = '' },
     })
@@ -378,12 +396,10 @@ function M.setup(opts)
   if opts then
     config = vim.tbl_deep_extend('force', config, opts)
   end
-  -- Create command :DamlRunScript to run CodeLens on current line
   vim.api.nvim_create_user_command('DamlRunScript', function()
     vim.lsp.codelens.run()
   end, {})
 
-  -- Force CodeLenses to refresh when you enter a buffer or pause typing
   vim.api.nvim_create_autocmd({ 'BufEnter', 'CursorHold', 'InsertLeave' }, {
     group = vim.api.nvim_create_augroup('daml_codelens_refresh', { clear = true }),
     pattern = '*.daml',
