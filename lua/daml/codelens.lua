@@ -10,7 +10,7 @@ _G.DamlVirtualBuffers = _G.DamlVirtualBuffers or {}
 local active_view = 'table' -- 'table' or 'transaction'
 local fold_maps = true -- Toggle for folding long Map[...] structures
 local show_archived = false -- Toggle for showing archived contracts (rows)
-local trim_decimals = true -- Toggle for trimming trailing zeros in decimals
+local compact_tables = true -- Toggle for compact tables (trim decimals & types)
 local raw_content_cache = {} -- Store raw HTML per URI for re-rendering
 
 -- Helper: Format & Align text tables into valid Markdown
@@ -203,15 +203,32 @@ local function render_daml_html(html)
   text = text:gsub('OObserver', 'O')
   text = text:gsub('DDivulged', 'D')
 
-  -- 10.5. TRIM DECIMALS
-  if trim_decimals then
-    text = text:gsub('(%d+%.%d+)', function(match)
-      local trimmed = match:gsub('0+$', '')
-      if trimmed:sub(-1) == '.' then
-        return trimmed .. '0'
+  -- 10.5. COMPACT TABLES LOGIC
+  if compact_tables then
+    local lines = vim.split(text, '\n')
+    local new_lines = {}
+
+    for _, line in ipairs(lines) do
+      -- Apply compaction only to non-header lines (skip # Title)
+      if not line:match '^%s*#' then
+        -- 1. Trim Decimals (Global preference, but applied line-by-line now)
+        line = line:gsub('(%d+%.%d+)', function(match)
+          local trimmed = match:gsub('0+$', '')
+          if trimmed:sub(-1) == '.' then
+            return trimmed .. '0'
+          end
+          return trimmed
+        end)
+
+        -- 2. Trim Types (Table View Only)
+        if active_view == 'table' then
+          -- Matches "Path:Type" where Type starts with uppercase
+          line = line:gsub('([%w_%.]+):([A-Z][%w_@#]*)', '%2')
+        end
       end
-      return trimmed
-    end)
+      table.insert(new_lines, line)
+    end
+    text = table.concat(new_lines, '\n')
   end
 
   -- 11. MAP FOLDING (Only in Table View)
@@ -275,7 +292,7 @@ local function update_buffer(buf, content)
       local x_mark = (active_view == 'transaction') and '[x]' or '[ ]'
       local m_mark = fold_maps and '[x]' or '[ ]'
       local a_mark = show_archived and '[x]' or '[ ]'
-      local d_mark = trim_decimals and '[x]' or '[ ]'
+      local c_mark = compact_tables and '[x]' or '[ ]'
 
       local header_lines = {
         'View Config:',
@@ -283,7 +300,7 @@ local function update_buffer(buf, content)
         string.format('%s - <leader>vx - Tx view', x_mark),
         string.format('%s - <leader>vm - Fold maps', m_mark),
         string.format('%s - <leader>va - Show archived', a_mark),
-        string.format('%s - <leader>vd - Trim decimals', d_mark),
+        string.format('%s - <leader>vc - Compact tables', c_mark),
         '', -- spacer
       }
 
@@ -385,10 +402,10 @@ function M.on_show_resource(command, ctx)
       refresh_all_views()
     end, { buffer = buf, desc = 'Daml: Toggle Archived Contracts' })
 
-    vim.keymap.set('n', '<leader>vd', function()
-      trim_decimals = not trim_decimals
+    vim.keymap.set('n', '<leader>vc', function()
+      compact_tables = not compact_tables
       refresh_all_views()
-    end, { buffer = buf, desc = 'Daml: Toggle Decimal Trimming' })
+    end, { buffer = buf, desc = 'Daml: Toggle Compact Tables' })
   end
 
   vim.diagnostic.enable(false, { bufnr = buf })
