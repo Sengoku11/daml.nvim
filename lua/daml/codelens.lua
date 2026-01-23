@@ -9,6 +9,7 @@ _G.DamlVirtualBuffers = _G.DamlVirtualBuffers or {}
 -- View State Management
 local active_view = 'table' -- 'table' or 'transaction'
 local fold_maps = true -- Toggle for folding long Map[...] structures
+local show_archived = false -- Toggle for showing archived contracts (rows)
 local raw_content_cache = {} -- Store raw HTML per URI for re-rendering
 
 -- Helper: Format & Align text tables into valid Markdown
@@ -144,6 +145,17 @@ local function render_daml_html(html)
     text = text:gsub('\r\n', '___NL___'):gsub('\n', '___NL___')
   end
 
+  -- 1.5. Filter Archived Contracts (if enabled and applicable)
+  -- We do this after view filtering but before striping tags to catch <tr class="archived">
+  if not show_archived then
+    -- Remove rows with class="archived".
+    -- Note: We rely on the fact that in Table view newlines were replaced by spaces,
+    -- but in Transaction view they are ___NL___.
+    -- However, the regex `.-` matches both spaces and `___NL___` (characters).
+    -- HTML: <tr class="archived">...</tr>
+    text = text:gsub('<tr[^>]*class="archived"[^>]*>.-</tr>', '')
+  end
+
   -- 2. Remove entire blocks (Tags AND Content)
   text = text:gsub('<head>.-</head>', '')
   text = text:gsub('<style>.-</style>', '')
@@ -257,12 +269,14 @@ local function update_buffer(buf, content)
       local t_mark = (active_view == 'table') and '[x]' or '[ ]'
       local x_mark = (active_view == 'transaction') and '[x]' or '[ ]'
       local m_mark = fold_maps and '[x]' or '[ ]'
+      local a_mark = show_archived and '[x]' or '[ ]'
 
       local header_lines = {
         'View Config:',
         string.format('%s - <leader>vt - Table view', t_mark),
         string.format('%s - <leader>vx - Tx view', x_mark),
         string.format('%s - <leader>vm - Fold maps', m_mark),
+        string.format('%s - <leader>va - Show archived', a_mark),
         '', -- spacer
       }
 
@@ -358,6 +372,11 @@ function M.on_show_resource(command, ctx)
       fold_maps = not fold_maps
       refresh_all_views()
     end, { buffer = buf, desc = 'Daml: Toggle Map Folding' })
+
+    vim.keymap.set('n', '<leader>va', function()
+      show_archived = not show_archived
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Toggle Archived Contracts' })
   end
 
   vim.diagnostic.enable(false, { bufnr = buf })
