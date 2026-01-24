@@ -1,63 +1,59 @@
-Minimal **DAML** support for Neovim.
+# daml.nvim
+
+![daml.nvim](docs/preview.png)
+
+Full support for **DAML** (haskell-based smart contract language) in Neovim.
 
 ## Features
 
-- **Filetype detection**: auto-detects `*.daml` via `ftdetect/`.
-- **LSP out of the box**:
-  - diagnostics (hints/errors/warnings)
-  - hover hints, go-to definition, code actions, formatting
-  - completion (integrates with your completion plugin; auto-capabilities with `blink.cmp` if present)
-- **Syntax highlighting**: maps DAML → **Haskell** Tree-sitter for broader coverage.
-- **Indent (optional)**: reuses `GetHaskellIndent()` when available.
-- **Startup-friendly**: safely lazy-loads; defers heavy work after UI when needed.
-- **Native API**: uses Neovim 0.11+ `vim.lsp.config()` / `vim.lsp.enable()` (no lspconfig dependency).
+- **LSP**: Native support for diagnostics, formatting, code actions, and completion (auto-configures `blink.cmp`).
+- **Script Results**: Run scripts (`<leader>gt`) and interact with transaction results (supports Table and Transaction views).
+- **Syntax**: Maps `*.daml` to the **Haskell** Tree-sitter parser.
+- **Lightweight**: Zero dependencies on `nvim-lspconfig`; uses Neovim 0.11+ native APIs.
 
 ## Requirements
 
 - **Neovim 0.11+**
-- **DPM / DAML SDK** (`daml` CLI on your `$PATH`) — required for the language server
-- Optional:
-  - **nvim-treesitter** (install the `haskell` parser)
-  - **blink.cmp** (for richer LSP capabilities)
+- **DPM/DAML** on `$PATH`
 
-## Install (lazy.nvim)
+## Installation 
 
-> Ships `ftdetect/daml.vim`, so `ft = 'daml'` works out of the box.
+Lazy.nvim
 
 ```lua
 {
   'Sengoku11/daml.nvim',
   ft = 'daml',
   dependencies = {
-    'nvim-treesitter/nvim-treesitter',
-    'saghen/blink.cmp',
+    'nvim-treesitter/nvim-treesitter',           -- syntax highlighting
+    'saghen/blink.cmp',                          -- autocompletion
+    'MeanderingProgrammer/render-markdown.nvim', -- pretty script results
   },
   keys = {
     { '<leader>gt', '<cmd>DamlRunScript<cr>', desc = 'Run Daml Script' },
   },
   opts = {
-    -- NOTE: If you use `dpm` uncomment the line below:
-    -- cmd = { 'dpm', 'damlc', 'multi-ide' }, -- for more settings run `dpm --help`
+    -- cmd = { 'dpm', 'damlc', 'multi-ide' }, -- Uncomment if using DPM
   },
 }
 ```
 
-> Defaults
+## Configuration
+
+Default settings:
+
 ```lua
 opts = {
-  treesitter_map = true, -- map daml -> haskell TS parser
-  keep_haskell_indent = true, -- set indentexpr to GetHaskellIndent() if available
-  daml_script = { render = true }, -- set to false if you prefer raw html output
+  treesitter_map = true,           -- Map daml -> haskell TS parser
+  keep_haskell_indent = true,      -- Use GetHaskellIndent() if available
+  daml_script = { render = true }, -- Render script results as Markdown
   lsp = {
     enable = true,
-    -- Create a new config for DAML LSP.
-    cmd = { 'daml', 'ide', '--RTS', '+RTS', '-M4G', '-N' },
-    filetypes = { 'daml' },
+    cmd = { 'daml', 'ide', '--RTS', '+RTS', '-M4G', '-N' }, -- You can pass some GHC flags too
     root_markers = { 'daml.yaml', '.git' },
-    single_file_support = true,
-    capabilities = nil, -- if nil, it’ll try blink.cmp and fall back to default
+    capabilities = nil,            -- Nil = auto-detect blink.cmp
   },
-  buffer_opts = {
+  buffer_opts = {                  -- Standard editor config for DAML buffers
     expandtab = true,
     shiftwidth = 2,
     tabstop = 2,
