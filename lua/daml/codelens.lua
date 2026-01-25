@@ -358,7 +358,7 @@ local function refresh_all_views()
 end
 
 --- Handler for 'daml/virtualResource/didChange'
-function M.on_virtual_resource_change(_, result, ctx)
+function M.on_virtual_resource_change(_, result, _)
   if not result or not result.uri then
     return
   end
@@ -382,6 +382,33 @@ function M.on_show_resource(command, ctx)
     return
   end
   local raw_uri = args[2]
+
+  local existing_buf = _G.DamlVirtualBuffers[raw_uri]
+  if existing_buf and vim.api.nvim_buf_is_valid(existing_buf) then
+    local winnr = vim.fn.bufwinnr(existing_buf)
+    if winnr ~= -1 then
+      -- Window exists in current tab, jump to it
+      vim.cmd(winnr .. 'wincmd w')
+    else
+      -- Buffer exists but hidden or in another tab: Open new split with existing buffer
+      vim.cmd 'botright vsplit'
+      local win = vim.api.nvim_get_current_win()
+      vim.api.nvim_win_set_buf(win, existing_buf)
+
+      -- We must reapply window options (wrapping, numbers, etc)
+      local wo = vim.wo[win]
+      wo.wrap = false
+      wo.virtualedit = 'all'
+      wo.number = false
+      wo.signcolumn = 'no'
+      wo.foldcolumn = '0'
+      wo.cursorline = true
+      wo.spell = false
+      wo.sidescrolloff = 0
+    end
+    -- STOP HERE. Don't re-init, don't send didOpen again.
+    return
+  end
 
   local buf = vim.api.nvim_create_buf(false, true)
   _G.DamlVirtualBuffers[raw_uri] = buf
