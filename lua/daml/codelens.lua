@@ -441,6 +441,36 @@ function M.on_show_resource(command, ctx)
   vim.keymap.set({ 'n', 'i' }, '<C-ScrollWheelUp>', '20zh', map_opts)
 
   if config.render then
+    vim.keymap.set('n', '<leader>vt', function()
+      active_view = 'table'
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Switch to Table View' })
+
+    vim.keymap.set('n', '<leader>vx', function()
+      active_view = 'transaction'
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Switch to Transaction View' })
+
+    vim.keymap.set('n', '<leader>vh', function()
+      active_view = 'html'
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Switch to HTML View' })
+
+    vim.keymap.set('n', '<leader>vm', function()
+      fold_maps = not fold_maps
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Toggle Map Folding' })
+
+    vim.keymap.set('n', '<leader>va', function()
+      show_archived = not show_archived
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Toggle Archived Contracts' })
+
+    vim.keymap.set('n', '<leader>vc', function()
+      compact_tables = not compact_tables
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Toggle Compact Tables' })
+
     vim.keymap.set('n', '<leader>vf', function()
       if vim.t.daml_zoomed then
         vim.cmd 'tabclose'
