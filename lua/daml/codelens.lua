@@ -7,7 +7,7 @@ local config = { render = true }
 _G.DamlVirtualBuffers = _G.DamlVirtualBuffers or {}
 
 -- View State Management
-local active_view = 'table' -- 'table' or 'transaction'
+local active_view = 'table' -- 'table', 'transaction' or 'html'
 local fold_maps = true -- Toggle for folding long Map[...] structures
 local show_archived = false -- Toggle for showing archived contracts (rows)
 local compact_tables = true -- Toggle for compact tables (trim decimals & types)
@@ -113,6 +113,10 @@ end
 
 -- Helper: Poor man's HTML-to-Text converter (Lua only)
 local function render_daml_html(html)
+  if active_view == 'html' then
+    return html
+  end
+
   local text = html
 
   -- 0. View Filtering (Table vs Transaction)
@@ -295,6 +299,7 @@ local function update_buffer(buf, content)
       -- Generate Header
       local t_mark = (active_view == 'table') and '[x]' or '[ ]'
       local x_mark = (active_view == 'transaction') and '[x]' or '[ ]'
+      local h_mark = (active_view == 'html') and '[x]' or '[ ]'
       local m_mark = fold_maps and '[x]' or '[ ]'
       local a_mark = show_archived and '[x]' or '[ ]'
       local c_mark = compact_tables and '[x]' or '[ ]'
@@ -303,6 +308,7 @@ local function update_buffer(buf, content)
         'View Config:',
         string.format('- %s <leader>vt - Table view', t_mark),
         string.format('- %s <leader>vx - Tx view', x_mark),
+        string.format('- %s <leader>vh - Show HTML', h_mark),
         string.format('- %s <leader>vm - Fold maps', m_mark),
         string.format('- %s <leader>va - Show archived', a_mark),
         string.format('- %s <leader>vc - Compact tables', c_mark),
@@ -396,6 +402,11 @@ function M.on_show_resource(command, ctx)
       active_view = 'transaction'
       refresh_all_views()
     end, { buffer = buf, desc = 'Daml: Switch to Transaction View' })
+
+    vim.keymap.set('n', '<leader>vh', function()
+      active_view = 'html'
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Switch to HTML View' })
 
     vim.keymap.set('n', '<leader>vm', function()
       fold_maps = not fold_maps
