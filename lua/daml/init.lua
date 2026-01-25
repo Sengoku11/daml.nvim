@@ -38,6 +38,51 @@ local function tbl_deep_extend(dst, src)
   return dst
 end
 
+local function jump_to_codelens(direction)
+  local lenses = vim.lsp.codelens.get(0)
+  if not lenses or #lenses == 0 then
+    return
+  end
+
+  table.sort(lenses, function(a, b)
+    return a.range.start.line < b.range.start.line
+  end)
+
+  local current_line = vim.api.nvim_win_get_cursor(0)[1] - 1 -- 0-indexed
+  local target_lens = nil
+
+  if direction == 1 then
+    -- Find next
+    for _, lens in ipairs(lenses) do
+      if lens.range.start.line > current_line then
+        target_lens = lens
+        break
+      end
+    end
+    -- Wrap around to first if none found
+    if not target_lens then
+      target_lens = lenses[1]
+    end
+  else
+    -- Find prev
+    for i = #lenses, 1, -1 do
+      local lens = lenses[i]
+      if lens.range.start.line < current_line then
+        target_lens = lens
+        break
+      end
+    end
+    -- Wrap around to last if none found
+    if not target_lens then
+      target_lens = lenses[#lenses]
+    end
+  end
+
+  if target_lens then
+    vim.api.nvim_win_set_cursor(0, { target_lens.range.start.line + 1, target_lens.range.start.character })
+  end
+end
+
 ---@param opts table|nil
 function M.setup(opts)
   vim.g._daml_nvim_user_setup_done = true
@@ -119,6 +164,14 @@ function M.setup(opts)
           vim.bo[k] = v
         end
       end
+
+      -- CodeLens Navigation
+      vim.keymap.set('n', ']l', function()
+        jump_to_codelens(1)
+      end, { buffer = true, desc = 'Next CodeLens' })
+      vim.keymap.set('n', '[l', function()
+        jump_to_codelens(-1)
+      end, { buffer = true, desc = 'Prev CodeLens' })
     end,
   })
 end

@@ -61,3 +61,12 @@ opts = {
   },
 }
 ```
+
+## Keymaps
+
+The plugin sets the following buffer-local keymaps for `daml` files:
+
+| Mapping | Description |
+| :--- | :--- |
+| `]l` | Jump to next CodeLens (Script Result) |
+| `[l` | Jump to previous CodeLens |
