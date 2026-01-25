@@ -83,6 +83,49 @@ local function jump_to_codelens(direction)
   end
 end
 
+local function run_smart_codelens()
+  local lenses = vim.lsp.codelens.get(0)
+  if not lenses or #lenses == 0 then
+    -- Let standard run handle the "No CodeLens" message or behavior
+    vim.lsp.codelens.run()
+    return
+  end
+
+  local current_line = vim.api.nvim_win_get_cursor(0)[1] - 1 -- 0-indexed
+
+  -- 1. Check for lens on current line
+  for _, lens in ipairs(lenses) do
+    if lens.range.start.line == current_line then
+      vim.lsp.codelens.run()
+      return
+    end
+  end
+
+  -- 2. Find nearest previous lens
+  -- Sort lenses by line number
+  table.sort(lenses, function(a, b)
+    return a.range.start.line < b.range.start.line
+  end)
+
+  local target_lens = nil
+  for i = #lenses, 1, -1 do
+    local lens = lenses[i]
+    if lens.range.start.line < current_line then
+      target_lens = lens
+      break
+    end
+  end
+
+  if target_lens then
+    -- Move cursor to the lens line so execution context is correct
+    vim.api.nvim_win_set_cursor(0, { target_lens.range.start.line + 1, target_lens.range.start.character })
+    vim.lsp.codelens.run()
+  else
+    -- Fallback: just try running (e.g. if cursor is above all lenses)
+    vim.lsp.codelens.run()
+  end
+end
+
 ---@param opts table|nil
 function M.setup(opts)
   vim.g._daml_nvim_user_setup_done = true
@@ -147,6 +190,10 @@ function M.setup(opts)
   end
 
   local bufopts = opts.buffer_opts
+
+  vim.api.nvim_create_user_command('DamlRunScript', function()
+    run_smart_codelens()
+  end, {})
 
   vim.api.nvim_create_autocmd('FileType', {
     group = vim.api.nvim_create_augroup('daml_nvim_ft', { clear = true }),
