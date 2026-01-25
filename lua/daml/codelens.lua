@@ -154,6 +154,16 @@ local function render_daml_html(html)
   if not show_archived then
     -- Remove rows with class="archived".
     text = text:gsub('<tr[^>]*class="archived"[^>]*>.-</tr>', '')
+
+    -- Remove empty tables (containers) that have no data rows left.
+    -- Matches structure: <div ...><h1>...</h1><table>...</table></div>
+    text = text:gsub('(<div[^>]*>%s*<h1[^>]*>.-</h1>%s*<table>(.-)</table>%s*</div>)', function(block, content)
+      -- If the table content has no <td> cells (only <th> headers), it's considered empty.
+      if not content:find '<td' then
+        return ''
+      end
+      return block
+    end)
   end
 
   -- 2. Remove entire blocks (Tags AND Content)
