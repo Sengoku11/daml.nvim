@@ -390,6 +390,9 @@ function M.on_show_resource(command, ctx)
   local win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(win, buf)
 
+  -- Ensure buffer is wiped when window closes to trigger auto-cleanup
+  vim.bo[buf].bufhidden = 'wipe'
+
   local wo = vim.wo[win]
   wo.wrap = false
   wo.virtualedit = 'all'
@@ -462,6 +465,23 @@ function M.on_show_resource(command, ctx)
   vim.bo[buf].modifiable = false
   vim.bo[buf].filetype = 'markdown'
 
+  -- Robust cleanup handler that fires on buffer death (via q, :bd, snacks.bufdelete, etc.)
+  vim.api.nvim_create_autocmd('BufWipeout', {
+    buffer = buf,
+    callback = function()
+      -- Check if this specific buffer is still the registered one to avoid race conditions
+      if _G.DamlVirtualBuffers[raw_uri] == buf then
+        _G.DamlVirtualBuffers[raw_uri] = nil
+        raw_content_cache[raw_uri] = nil
+
+        local client = vim.lsp.get_client_by_id(ctx.client_id)
+        if client then
+          client:notify('textDocument/didClose', { textDocument = { uri = raw_uri } })
+        end
+      end
+    end,
+  })
+
   vim.keymap.set('n', 'q', function()
     if vim.t.daml_zoomed then
       -- If in fullscreen tab, just close the tab (exit fullscreen)
@@ -469,17 +489,8 @@ function M.on_show_resource(command, ctx)
       is_fullscreen = false
       refresh_all_views()
     else
-      -- If normal split, close the window and the session
-      _G.DamlVirtualBuffers[raw_uri] = nil
-      raw_content_cache[raw_uri] = nil
-
-      if vim.api.nvim_win_is_valid(win) then
-        vim.api.nvim_win_close(win, true)
-      end
-      local client = vim.lsp.get_client_by_id(ctx.client_id)
-      if client then
-        client:notify('textDocument/didClose', { textDocument = { uri = raw_uri } })
-      end
+      -- Force wipeout to trigger the BufWipeout autocommand defined above
+      vim.cmd('bwipeout ' .. buf)
     end
   end, { buffer = buf })
 
