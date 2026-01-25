@@ -11,6 +11,7 @@ local active_view = 'table' -- 'table', 'transaction' or 'html'
 local fold_maps = true -- Toggle for folding long Map[...] structures
 local show_archived = false -- Toggle for showing archived contracts (rows)
 local compact_tables = true -- Toggle for compact tables (trim decimals & types)
+local is_fullscreen = false -- Toggle for fullscreen mode tracking
 local raw_content_cache = {} -- Store raw HTML per URI for re-rendering
 
 -- Helper: Format & Align text tables into valid Markdown
@@ -314,6 +315,10 @@ local function update_buffer(buf, content)
       local a_mark = show_archived and '[x]' or '[ ]'
       local c_mark = compact_tables and '[x]' or '[ ]'
 
+      -- Fullscreen Logic
+      local f_mark = is_fullscreen and '[x]' or '[ ]'
+      local f_desc = is_fullscreen and 'Close Fullscreen' or 'Enter Fullscreen'
+
       local header_lines = {
         'View Config:',
         string.format('- %s <leader>vt - Table view', t_mark),
@@ -322,6 +327,7 @@ local function update_buffer(buf, content)
         string.format('- %s <leader>vm - Fold maps', m_mark),
         string.format('- %s <leader>va - Show archived', a_mark),
         string.format('- %s <leader>vc - Compact tables', c_mark),
+        string.format('- %s <leader>vf - %s', f_mark, f_desc),
         '', -- spacer
       }
 
@@ -432,6 +438,18 @@ function M.on_show_resource(command, ctx)
       compact_tables = not compact_tables
       refresh_all_views()
     end, { buffer = buf, desc = 'Daml: Toggle Compact Tables' })
+
+    vim.keymap.set('n', '<leader>vf', function()
+      if vim.t.daml_zoomed then
+        vim.cmd 'tabclose'
+        is_fullscreen = false
+      else
+        vim.cmd 'tab split'
+        vim.t.daml_zoomed = true
+        is_fullscreen = true
+      end
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Toggle Fullscreen' })
   end
 
   vim.diagnostic.enable(false, { bufnr = buf })
@@ -445,15 +463,23 @@ function M.on_show_resource(command, ctx)
   vim.bo[buf].filetype = 'markdown'
 
   vim.keymap.set('n', 'q', function()
-    _G.DamlVirtualBuffers[raw_uri] = nil
-    raw_content_cache[raw_uri] = nil
+    if vim.t.daml_zoomed then
+      -- If in fullscreen tab, just close the tab (exit fullscreen)
+      vim.cmd 'tabclose'
+      is_fullscreen = false
+      refresh_all_views()
+    else
+      -- If normal split, close the window and the session
+      _G.DamlVirtualBuffers[raw_uri] = nil
+      raw_content_cache[raw_uri] = nil
 
-    if vim.api.nvim_win_is_valid(win) then
-      vim.api.nvim_win_close(win, true)
-    end
-    local client = vim.lsp.get_client_by_id(ctx.client_id)
-    if client then
-      client:notify('textDocument/didClose', { textDocument = { uri = raw_uri } })
+      if vim.api.nvim_win_is_valid(win) then
+        vim.api.nvim_win_close(win, true)
+      end
+      local client = vim.lsp.get_client_by_id(ctx.client_id)
+      if client then
+        client:notify('textDocument/didClose', { textDocument = { uri = raw_uri } })
+      end
     end
   end, { buffer = buf })
 
