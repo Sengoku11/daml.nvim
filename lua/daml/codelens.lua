@@ -439,36 +439,6 @@ function M.on_show_resource(command, ctx)
   vim.keymap.set({ 'n', 'i' }, '<C-ScrollWheelUp>', '20zh', map_opts)
 
   if config.render then
-    vim.keymap.set('n', '<leader>vt', function()
-      active_view = 'table'
-      refresh_all_views()
-    end, { buffer = buf, desc = 'Daml: Switch to Table View' })
-
-    vim.keymap.set('n', '<leader>vx', function()
-      active_view = 'transaction'
-      refresh_all_views()
-    end, { buffer = buf, desc = 'Daml: Switch to Transaction View' })
-
-    vim.keymap.set('n', '<leader>vh', function()
-      active_view = 'html'
-      refresh_all_views()
-    end, { buffer = buf, desc = 'Daml: Switch to HTML View' })
-
-    vim.keymap.set('n', '<leader>vm', function()
-      fold_maps = not fold_maps
-      refresh_all_views()
-    end, { buffer = buf, desc = 'Daml: Toggle Map Folding' })
-
-    vim.keymap.set('n', '<leader>va', function()
-      show_archived = not show_archived
-      refresh_all_views()
-    end, { buffer = buf, desc = 'Daml: Toggle Archived Contracts' })
-
-    vim.keymap.set('n', '<leader>vc', function()
-      compact_tables = not compact_tables
-      refresh_all_views()
-    end, { buffer = buf, desc = 'Daml: Toggle Compact Tables' })
-
     vim.keymap.set('n', '<leader>vf', function()
       if vim.t.daml_zoomed then
         vim.cmd 'tabclose'
@@ -480,6 +450,39 @@ function M.on_show_resource(command, ctx)
       end
       refresh_all_views()
     end, { buffer = buf, desc = 'Daml: Toggle Fullscreen' })
+
+    vim.keymap.set('n', '<CR>', function()
+      local line = vim.api.nvim_get_current_line()
+      if line:find('<leader>vt', 1, true) then
+        active_view = 'table'
+        refresh_all_views()
+      elseif line:find('<leader>vx', 1, true) then
+        active_view = 'transaction'
+        refresh_all_views()
+      elseif line:find('<leader>vh', 1, true) then
+        active_view = 'html'
+        refresh_all_views()
+      elseif line:find('<leader>vm', 1, true) then
+        fold_maps = not fold_maps
+        refresh_all_views()
+      elseif line:find('<leader>va', 1, true) then
+        show_archived = not show_archived
+        refresh_all_views()
+      elseif line:find('<leader>vc', 1, true) then
+        compact_tables = not compact_tables
+        refresh_all_views()
+      elseif line:find('<leader>vf', 1, true) then
+        if vim.t.daml_zoomed then
+          vim.cmd 'tabclose'
+          is_fullscreen = false
+        else
+          vim.cmd 'tab split'
+          vim.t.daml_zoomed = true
+          is_fullscreen = true
+        end
+        refresh_all_views()
+      end
+    end, { buffer = buf, desc = 'Daml: Toggle View Setting' })
   end
 
   vim.diagnostic.enable(false, { bufnr = buf })
