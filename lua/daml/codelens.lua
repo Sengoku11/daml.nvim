@@ -486,13 +486,25 @@ function M.on_show_resource(command, ctx)
     vim.keymap.set('n', '<CR>', function()
       local line = vim.api.nvim_get_current_line()
       if line:find('<leader>vt', 1, true) then
-        active_view = 'table'
+        if active_view == 'table' then
+          active_view = 'transaction' -- Untoggle vt -> default to vx
+        else
+          active_view = 'table'
+        end
         refresh_all_views()
       elseif line:find('<leader>vx', 1, true) then
-        active_view = 'transaction'
+        if active_view == 'transaction' then
+          active_view = 'table' -- Untoggle vx -> default to vt
+        else
+          active_view = 'transaction'
+        end
         refresh_all_views()
       elseif line:find('<leader>vh', 1, true) then
-        active_view = 'html'
+        if active_view == 'html' then
+          active_view = 'table' -- Untoggle vh -> default to vt
+        else
+          active_view = 'html'
+        end
         refresh_all_views()
       elseif line:find('<leader>vm', 1, true) then
         fold_maps = not fold_maps
