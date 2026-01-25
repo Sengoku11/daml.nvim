@@ -301,11 +301,11 @@ local function update_buffer(buf, content)
 
       local header_lines = {
         'View Config:',
-        string.format('%s - <leader>vt - Table view', t_mark),
-        string.format('%s - <leader>vx - Tx view', x_mark),
-        string.format('%s - <leader>vm - Fold maps', m_mark),
-        string.format('%s - <leader>va - Show archived', a_mark),
-        string.format('%s - <leader>vc - Compact tables', c_mark),
+        string.format('- %s <leader>vt - Table view', t_mark),
+        string.format('- %s <leader>vx - Tx view', x_mark),
+        string.format('- %s <leader>vm - Fold maps', m_mark),
+        string.format('- %s <leader>va - Show archived', a_mark),
+        string.format('- %s <leader>vc - Compact tables', c_mark),
         '', -- spacer
       }
 
