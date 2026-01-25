@@ -320,6 +320,8 @@ local function update_buffer(buf, content)
       local f_desc = is_fullscreen and 'Close Fullscreen' or 'Enter Fullscreen'
 
       local header_lines = {
+        'Controls: <q> close, <CR> toggle option',
+        '',
         'View Config:',
         string.format('- %s <leader>vt - Table view', t_mark),
         string.format('- %s <leader>vx - Tx view', x_mark),
