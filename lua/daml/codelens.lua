@@ -118,6 +118,56 @@ local function render_daml_html(html)
     return html
   end
 
+  local entities = {
+    ['&quot;'] = '"',
+    ['&apos;'] = "'",
+    ['&#39;'] = "'",
+    ['&lt;'] = '<',
+    ['&gt;'] = '>',
+    ['&amp;'] = '&',
+    ['&nbsp;'] = ' ',
+  }
+
+  -- 0.0 PRE-PROCESS: Extract error for Table View
+  local table_error_block = nil
+  if active_view == 'table' then
+    -- Find the transaction block first to ensure we look in the right place
+    local s_tx_start = html:find '<div class="da%-code transaction">'
+    if s_tx_start then
+      local tx_part = html:sub(s_tx_start)
+      -- Match from error span up to "Ledger time"
+      -- Use [%s%S] to match across newlines
+      local match = tx_part:match '(<span class="da%-hl%-error">Script execution failed on commit at[%s%S]-)Ledger time:'
+
+      if match then
+        local e = match
+        -- Convert <br> to newlines
+        e = e:gsub('<br%s*/?>', '\n')
+        -- Strip tags
+        e = e:gsub('<[^>]+>', '')
+        -- Decode entities
+        e = e:gsub('&%w+;', entities):gsub('&#%d+;', entities)
+        e = vim.trim(e)
+
+        -- Format as Markdown
+        -- Split first line (Header) from body
+        local nl_pos = e:find '\n'
+        if nl_pos then
+          local header = e:sub(1, nl_pos - 1)
+          local body = e:sub(nl_pos + 1)
+          -- Ensure header has ## prefix
+          if not header:match '^##' then
+            header = '## ' .. header
+          end
+          table_error_block = header .. '\n```haskell\n' .. body .. '\n```'
+        else
+          -- Fallback if single line
+          table_error_block = '## ' .. e
+        end
+      end
+    end
+  end
+
   local text = html
 
   -- 0. View Filtering (Table vs Transaction)
@@ -201,15 +251,6 @@ local function render_daml_html(html)
   text = text:gsub('<[^>]+>', '')
 
   -- 9. Decode HTML Entities
-  local entities = {
-    ['&quot;'] = '"',
-    ['&apos;'] = "'",
-    ['&#39;'] = "'",
-    ['&lt;'] = '<',
-    ['&gt;'] = '>',
-    ['&amp;'] = '&',
-    ['&nbsp;'] = ' ',
-  }
   text = text:gsub('&%w+;', entities):gsub('&#%d+;', entities)
 
   -- 10. Fix Artifacts
@@ -287,6 +328,14 @@ local function render_daml_html(html)
   end
 
   text = text:gsub('^%s+', '')
+
+  -- INJECT ERROR for Table View (Using pre-extracted block)
+  if table_error_block then
+    local target = 'Script execution failed, displaying state before failing transaction'
+    if text:find(target, 1, true) then
+      text = text:gsub(vim.pesc(target), table_error_block .. '\n\n' .. target)
+    end
+  end
 
   -- 13. MARKDOWN MAGIC
   text = format_markdown_tables(text)
