@@ -127,13 +127,17 @@ local function render_daml_html(html)
     ['&nbsp;'] = ' ',
   }
 
-  -- 0.0 PRE-PROCESS: Extract error for Table View
+  -- 0.0 PRE-PROCESS: Extract error and Trace for Table View
   local table_error_block = nil
+  local trace_block = nil
+
   if active_view == 'table' then
     -- Find the transaction block first to ensure we look in the right place
     local s_tx_start = html:find '<div class="da%-code transaction">'
     if s_tx_start then
       local tx_part = html:sub(s_tx_start)
+
+      -- 1. Extract Error
       -- Match from error span up to "Ledger time"
       -- Use [%s%S] to match across newlines
       local match = tx_part:match '(<span class="da%-hl%-error">Script execution failed on commit at[%s%S]-)Ledger time:'
@@ -162,6 +166,33 @@ local function render_daml_html(html)
         else
           -- Fallback if single line
           table_error_block = '## ' .. e
+        end
+      end
+
+      -- 2. Extract Trace (if any)
+      local match_trace = tx_part:match '(Trace:%s*<br>[%s%S]*)'
+      if match_trace then
+        local t = match_trace
+        -- Stop at closing div of transaction block (if captured)
+        local end_div = t:find '</div>'
+        if end_div then
+          t = t:sub(1, end_div - 1)
+        end
+
+        t = t:gsub('<br%s*/?>', '\n')
+        t = t:gsub('<[^>]+>', '')
+        t = t:gsub('&%w+;', entities):gsub('&#%d+;', entities)
+
+        -- Clean up formatting WITHOUT stripping indentation of the first line
+        -- 1. Remove the "Trace:" header and the immediate newline after it
+        t = t:gsub('^%s*Trace:%s*[\r\n]+', '')
+        -- 2. Fallback: if no newline (one-liner), just remove the label
+        t = t:gsub('^%s*Trace:%s*', '')
+        -- 3. Remove trailing whitespace only
+        t = t:gsub('%s+$', '')
+
+        if #t > 0 then
+          trace_block = '## Trace:\n```haskell\n' .. t .. '\n```'
         end
       end
     end
@@ -328,11 +359,23 @@ local function render_daml_html(html)
 
   text = text:gsub('^%s+', '')
 
-  -- INJECT ERROR for Table View (Using pre-extracted block)
+  -- INJECT TRACE & ERROR for Table View
+  local injection = ''
+  if trace_block then
+    injection = injection .. trace_block .. '\n\n'
+  end
   if table_error_block then
+    injection = injection .. table_error_block .. '\n\n'
+  end
+
+  if injection ~= '' then
     local target = 'Script execution failed, displaying state before failing transaction'
     if text:find(target, 1, true) then
-      text = text:gsub(vim.pesc(target), table_error_block .. '\n\n' .. target)
+      text = text:gsub(vim.pesc(target), injection .. target)
+    else
+      -- If target not found (e.g. text mismatches or stripped), prepend to top
+      -- This ensures it appears before the tables, not at the end.
+      text = injection .. text
     end
   end
 
