@@ -370,11 +370,11 @@ local function update_buffer(buf, content)
         'Controls: <q> close, <CR> toggle option',
         '',
         'View Config:',
-        string.format('- %s <leader>vt - Table view', t_mark),
-        string.format('- %s <leader>vx - Tx view', x_mark),
-        string.format('- %s <leader>vh - Show HTML', h_mark),
-        string.format('- %s <leader>va - Show archived', a_mark),
-        string.format('- %s <leader>vc - Compact tables', c_mark),
+        string.format('- %s <leader>vt - Table View', t_mark),
+        string.format('- %s <leader>vx - Tx View', x_mark),
+        string.format('- %s <leader>vh - HTML View', h_mark),
+        string.format('- %s <leader>va - Show Archived', a_mark),
+        string.format('- %s <leader>vc - Compact Tables', c_mark),
         string.format('- %s <leader>vf - %s', f_mark, f_desc),
         '', -- spacer
       }
