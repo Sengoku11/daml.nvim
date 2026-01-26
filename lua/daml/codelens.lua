@@ -140,7 +140,7 @@ local function render_daml_html(html)
       -- 1. Extract Error
       -- Match from error span up to "Ledger time"
       -- Use [%s%S] to match across newlines
-      local match = tx_part:match '(<span class="da%-hl%-error">Script execution failed on commit at[%s%S]-)Ledger time:'
+      local match = tx_part:match '(<span class="da%-hl%-error">Script execution failed[%s%S]-)Ledger time:'
 
       if match then
         local e = match
