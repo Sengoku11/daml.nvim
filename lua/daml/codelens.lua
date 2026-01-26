@@ -190,7 +190,7 @@ local function render_daml_html(html)
     -- Replace <br> with space in tables
     text = text:gsub('<br%s*/?>', ' ')
     -- Trim excessive spaces (more than 2 -> 2) to fix "tabs-like breaks"
-    text = text:gsub('%s%s%s+', '  ')
+    text = text:gsub('%s%s%s+', ' ')
   elseif active_view == 'transaction' then
     -- Hide table
     if s_table and s_tx and s_table < s_tx then
@@ -234,7 +234,7 @@ local function render_daml_html(html)
   text = text:gsub('Show detailed disclosure', '')
 
   -- Handle Headers
-  text = text:gsub('<h1[^>]*>', '\n\n\n\n# '):gsub('</h1>', '')
+  text = text:gsub('<h1[^>]*>', '\n\n\n# '):gsub('</h1>', '')
 
   -- 5. Format Table Rows (Active Contracts)
   text = text:gsub('<tr[^>]*>', '\n') -- Row start = Newline
