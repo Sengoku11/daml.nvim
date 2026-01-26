@@ -7,7 +7,7 @@ local config = { render = true }
 _G.DamlVirtualBuffers = _G.DamlVirtualBuffers or {}
 
 -- View State Management
-local active_view = 'table' -- 'table', 'transaction' or 'html'
+local active_view = 'table' -- 'table', 'transaction', 'html' or 'zen'
 local show_archived = false -- Toggle for showing archived contracts (rows)
 local compact_tables = true -- Toggle for compact tables (trim decimals & types)
 local is_fullscreen = false -- Toggle for fullscreen mode tracking
@@ -127,11 +127,11 @@ local function render_daml_html(html)
     ['&nbsp;'] = ' ',
   }
 
-  -- 0.0 PRE-PROCESS: Extract error and Trace for Table View
+  -- 0.0 PRE-PROCESS: Extract error and Trace for Table/Zen View
   local table_error_block = nil
   local trace_block = nil
 
-  if active_view == 'table' then
+  if active_view == 'table' or active_view == 'zen' then
     -- Find the transaction block first to ensure we look in the right place
     local s_tx_start = html:find '<div class="da%-code transaction">'
     if s_tx_start then
@@ -200,7 +200,7 @@ local function render_daml_html(html)
 
   local text = html
 
-  -- 0. View Filtering (Table vs Transaction)
+  -- 0. View Filtering (Table vs Transaction vs Zen)
   local tx_marker = '<div class="da%-code transaction">'
   local table_marker = '<div class="table">'
 
@@ -229,6 +229,9 @@ local function render_daml_html(html)
 
     -- Transaction view relies on original newlines/br
     text = text:gsub('\r\n', '___NL___'):gsub('\n', '___NL___')
+  elseif active_view == 'zen' then
+    -- Hide everything, rely only on injected trace/error blocks
+    text = ''
   end
 
   -- 1.5. Filter Archived Contracts (if enabled and applicable)
@@ -359,7 +362,7 @@ local function render_daml_html(html)
 
   text = text:gsub('^%s+', '')
 
-  -- INJECT TRACE & ERROR for Table View
+  -- INJECT TRACE & ERROR for Table/Zen View
   local injection = ''
   if trace_block then
     injection = injection .. trace_block .. '\n\n'
@@ -402,6 +405,7 @@ local function update_buffer(buf, content)
       local t_mark = (active_view == 'table') and '[x]' or '[ ]'
       local x_mark = (active_view == 'transaction') and '[x]' or '[ ]'
       local h_mark = (active_view == 'html') and '[x]' or '[ ]'
+      local z_mark = (active_view == 'zen') and '[x]' or '[ ]'
       local a_mark = show_archived and '[x]' or '[ ]'
       local c_mark = compact_tables and '[x]' or '[ ]'
 
@@ -416,6 +420,7 @@ local function update_buffer(buf, content)
         string.format('- %s <leader>vt - Table View', t_mark),
         string.format('- %s <leader>vx - Tx View', x_mark),
         string.format('- %s <leader>vh - HTML View', h_mark),
+        string.format('- %s <leader>vz - Zen View', z_mark),
         string.format('- %s <leader>va - Show Archived', a_mark),
         string.format('- %s <leader>vc - Compact Tables', c_mark),
         string.format('- %s <leader>vf - %s', f_mark, f_desc),
@@ -545,6 +550,11 @@ function M.on_show_resource(command, ctx)
       refresh_all_views()
     end, { buffer = buf, desc = 'Daml: Switch to HTML View' })
 
+    vim.keymap.set('n', '<leader>vz', function()
+      active_view = 'zen'
+      refresh_all_views()
+    end, { buffer = buf, desc = 'Daml: Switch to Zen View' })
+
     vim.keymap.set('n', '<leader>va', function()
       show_archived = not show_archived
       refresh_all_views()
@@ -588,6 +598,13 @@ function M.on_show_resource(command, ctx)
           active_view = 'table' -- Untoggle vh -> default to vt
         else
           active_view = 'html'
+        end
+        refresh_all_views()
+      elseif line:find('<leader>vz', 1, true) then
+        if active_view == 'zen' then
+          active_view = 'table' -- Untoggle vz -> default to vt
+        else
+          active_view = 'zen'
         end
         refresh_all_views()
       elseif line:find('<leader>va', 1, true) then
