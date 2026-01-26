@@ -8,7 +8,6 @@ _G.DamlVirtualBuffers = _G.DamlVirtualBuffers or {}
 
 -- View State Management
 local active_view = 'table' -- 'table', 'transaction' or 'html'
-local fold_maps = true -- Toggle for folding long Map[...] structures
 local show_archived = false -- Toggle for showing archived contracts (rows)
 local compact_tables = true -- Toggle for compact tables (trim decimals & types)
 local is_fullscreen = false -- Toggle for fullscreen mode tracking
@@ -293,7 +292,7 @@ local function render_daml_html(html)
   end
 
   -- 11. MAP FOLDING (Only in Table View)
-  if active_view == 'table' and fold_maps then
+  if active_view == 'table' and compact_tables then
     local map_refs = {}
     local map_count = 0
 
@@ -360,7 +359,6 @@ local function update_buffer(buf, content)
       local t_mark = (active_view == 'table') and '[x]' or '[ ]'
       local x_mark = (active_view == 'transaction') and '[x]' or '[ ]'
       local h_mark = (active_view == 'html') and '[x]' or '[ ]'
-      local m_mark = fold_maps and '[x]' or '[ ]'
       local a_mark = show_archived and '[x]' or '[ ]'
       local c_mark = compact_tables and '[x]' or '[ ]'
 
@@ -375,7 +373,6 @@ local function update_buffer(buf, content)
         string.format('- %s <leader>vt - Table view', t_mark),
         string.format('- %s <leader>vx - Tx view', x_mark),
         string.format('- %s <leader>vh - Show HTML', h_mark),
-        string.format('- %s <leader>vm - Fold maps', m_mark),
         string.format('- %s <leader>va - Show archived', a_mark),
         string.format('- %s <leader>vc - Compact tables', c_mark),
         string.format('- %s <leader>vf - %s', f_mark, f_desc),
@@ -505,11 +502,6 @@ function M.on_show_resource(command, ctx)
       refresh_all_views()
     end, { buffer = buf, desc = 'Daml: Switch to HTML View' })
 
-    vim.keymap.set('n', '<leader>vm', function()
-      fold_maps = not fold_maps
-      refresh_all_views()
-    end, { buffer = buf, desc = 'Daml: Toggle Map Folding' })
-
     vim.keymap.set('n', '<leader>va', function()
       show_archived = not show_archived
       refresh_all_views()
@@ -554,9 +546,6 @@ function M.on_show_resource(command, ctx)
         else
           active_view = 'html'
         end
-        refresh_all_views()
-      elseif line:find('<leader>vm', 1, true) then
-        fold_maps = not fold_maps
         refresh_all_views()
       elseif line:find('<leader>va', 1, true) then
         show_archived = not show_archived
