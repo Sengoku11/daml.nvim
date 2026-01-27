@@ -127,9 +127,10 @@ local function render_daml_html(html)
     ['&nbsp;'] = ' ',
   }
 
-  -- 0.0 PRE-PROCESS: Extract error and Trace for Table/Zen View
+  -- 0.0 PRE-PROCESS: Extract Error, Trace, and Return Value for Table/Zen View
   local table_error_block = nil
   local trace_block = nil
+  local return_block = nil
 
   if active_view == 'table' or active_view == 'zen' then
     -- Find the transaction block first to ensure we look in the right place
@@ -193,6 +194,20 @@ local function render_daml_html(html)
 
         if #t > 0 then
           trace_block = '## Trace:\n```haskell\n' .. t .. '\n```'
+        end
+      end
+
+      -- 3. Extract Return Value (if any)
+      local match_ret = tx_part:match 'Return value:%s*([%s%S]-)</div>'
+      if match_ret then
+        local r = match_ret
+        r = r:gsub('<br%s*/?>', '\n')
+        r = r:gsub('<[^>]+>', '')
+        r = r:gsub('&%w+;', entities):gsub('&#%d+;', entities)
+        r = vim.trim(r)
+
+        if #r > 0 then
+          return_block = '## Return value:\n```haskell\n' .. r .. '\n```'
         end
       end
     end
@@ -362,10 +377,13 @@ local function render_daml_html(html)
 
   text = text:gsub('^%s+', '')
 
-  -- INJECT TRACE & ERROR for Table/Zen View
+  -- INJECT TRACE & RETURN & ERROR for Table/Zen View
   local injection = ''
   if trace_block then
     injection = injection .. trace_block .. '\n\n'
+  end
+  if return_block then
+    injection = injection .. return_block .. '\n\n'
   end
   if table_error_block then
     injection = injection .. table_error_block .. '\n\n'
