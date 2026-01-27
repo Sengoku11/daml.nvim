@@ -198,16 +198,29 @@ local function render_daml_html(html)
       end
 
       -- 3. Extract Return Value (if any)
-      local match_ret = tx_part:match 'Return value:%s*([%s%S]-)</div>'
-      if match_ret then
-        local r = match_ret
-        r = r:gsub('<br%s*/?>', '\n')
-        r = r:gsub('<[^>]+>', '')
-        r = r:gsub('&%w+;', entities):gsub('&#%d+;', entities)
-        r = vim.trim(r)
+      local s_ret, e_ret = tx_part:find 'Return value:%s*'
+      if s_ret then
+        local content_after = tx_part:sub(e_ret + 1)
 
-        if #r > 0 then
-          return_block = '## Return value:\n```haskell\n' .. r .. '\n```'
+        -- Stop at "Trace" OR "</div>" to avoid greedy match
+        local limit_div = content_after:find '</div>'
+        local limit_trace = content_after:find 'Trace:'
+
+        local limit = limit_div
+        if limit_trace and (not limit or limit_trace < limit) then
+          limit = limit_trace
+        end
+
+        if limit then
+          local r = content_after:sub(1, limit - 1)
+          r = r:gsub('<br%s*/?>', '\n')
+          r = r:gsub('<[^>]+>', '')
+          r = r:gsub('&%w+;', entities):gsub('&#%d+;', entities)
+          r = vim.trim(r)
+
+          if #r > 0 then
+            return_block = '## Return value:\n```haskell\n' .. r .. '\n```'
+          end
         end
       end
     end
