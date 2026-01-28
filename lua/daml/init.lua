@@ -10,7 +10,7 @@ local defaults = {
     -- Create a new config for DAML LSP.
     cmd = { 'daml', 'ide', '--RTS', '+RTS', '-M4G', '-N' },
     filetypes = { 'daml' },
-    root_markers = { 'daml.yaml', '.git' },
+    root_markers = { 'multi-package.daml', 'daml.yaml', '.git' },
     single_file_support = true,
     capabilities = nil, -- if nil, it’ll try blink.cmp and fall back to default
   },

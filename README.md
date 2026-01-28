@@ -50,7 +50,7 @@ opts = {
   lsp = {
     enable = true,
     cmd = { 'daml', 'ide', '--RTS', '+RTS', '-M4G', '-N' }, -- You can pass some GHC flags too
-    root_markers = { 'daml.yaml', '.git' },
+    root_markers = { 'multi-package.daml', 'daml.yaml', '.git' },
     capabilities = nil,            -- Nil = auto-detect blink.cmp
   },
   buffer_opts = {                  -- Standard editor config for DAML buffers
