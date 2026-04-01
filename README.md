@@ -33,9 +33,8 @@ Lazy.nvim
     { '<leader>gt', '<cmd>DamlRunScript<cr>', desc = 'Run Daml Script' },
   },
   opts = {
-    lsp = {
-      -- cmd = { 'dpm', 'damlc', 'multi-ide' }, -- Uncomment if using DPM
-    },
+    -- Uncomment if using DPM
+    -- lsp = { cmd = { 'dpm', 'damlc', 'multi-ide' }, },
   },
 }
 ```
